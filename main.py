@@ -8,6 +8,7 @@ import string
 import tensorflow as tf
 from sklearn.preprocessing import MultiLabelBinarizer
 from sklearn.model_selection import train_test_split
+import joblib
 
 from tensorflow.keras import layers
 from tensorflow.keras import losses
@@ -113,3 +114,13 @@ preds = model.predict(vectorize_layer(sample_text))
 pred_labels = (preds > 0.5).astype(int)
 decoded = mlb.inverse_transform(pred_labels)
 print(decoded)
+
+
+export_model = tf.keras.Sequential([
+    vectorize_layer,
+    model
+])
+export_model.save("game_genre_classifier")
+
+# Save label binarizer
+joblib.dump(mlb, "genre_binarizer.pkl")
