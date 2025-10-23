@@ -1,4 +1,4 @@
-'The Search for a Colour Palette', ('Action', 'Adventure', 'Indie'), ('Action', 'Adventure', 'Indie', 'RPG')
+'The Search for a Colour Palette', ("Action", 'Adventure', 'Indie'), ('Action', 'Adventure', 'Indie', 'RPG')
 'Hypothetimania', ('Adventure', 'Casual', 'Indie'), ('Action', 'Adventure', 'Casual', 'Indie')
 'Guardian war VR', ('Action', 'Adventure', 'Indie', 'RPG'), ('Action', 'Adventure', 'Casual', 'RPG', 'Simulation')
 'Architecture Zeitgeist', (Indie), ('Casual', 'Early Access', 'Indie', 'Simulation')

@@ -110,7 +110,7 @@ if __name__ == "__main__":
             elif true_genres_decoded[i]:
                 genres_real = true_genres_decoded[i]
             else:
-                genres_real = "'no genres'"
+                genres_real = "\"no genres\""
 
             # Get outputted genres
             if len(decoded[i]) == 1:
