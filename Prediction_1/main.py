@@ -107,22 +107,34 @@ if __name__ == "__main__":
             name = names_test.iloc[i]
             # Get real genres
             if len(true_genres_decoded[i]) == 1:
-                genres_real = f"({true_genres_decoded[i][0]})"
+                genres_real = f"(\"{true_genres_decoded[i][0]}\")"
             elif true_genres_decoded[i]:
-                genres_real = true_genres_decoded[i]
+                genres_real = ""
+                for gen in true_genres_decoded[i]:
+                    if gen == true_genres_decoded[i][-1]:
+                        genres_real += f"\"{gen}\""
+                    else:
+                        genres_real += f"\"{gen}\", "
+                genres_real = "(" + genres_real + ")"
             else:
                 genres_real = "\"no genres\""
 
             # Get outputted genres
             if len(decoded[i]) == 1:
-                genres = f"({decoded[i][0]})"
+                genres = f"(\"{decoded[i][0]}\")"
             elif decoded[i]:
-                genres = decoded[i]
+                genres = ""
+                for gen in decoded[i]:
+                    if gen == decoded[i][-1]:
+                        genres += f"\"{gen}\""
+                    else:
+                        genres += f"\"{gen}\", "
+                genres = "(" + genres + ")"
             else:
-                genres = "'no genres predicted'"
+                genres = "\"no genres predicted\""
             
             # Write name and genres to file
-            f.write(f"'{name}', {genres}, {genres_real}\n")
+            f.write(f"\"{name}\", {genres}, {genres_real}\n")
 
     # Export trained model
     export_model = tf.keras.Sequential([
