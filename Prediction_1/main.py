@@ -97,54 +97,47 @@ if __name__ == "__main__":
     decoded = mlb.inverse_transform(pred_labels)
 
     # Save results to text file
-    output_file = "Prediction_1/Predictions.txt"
+    output = pd.DataFrame(columns=['Name', 'Prediction', 'Actual'])
 
     # Convert back to actual genre labels
     true_genres_decoded = mlb.inverse_transform(y_test)
     
-    with open(output_file, "w", encoding="utf-8") as f:
-        for i in range(len(X_test)):
-            name = names_test.iloc[i]
-            # Get real genres
-            if len(true_genres_decoded[i]) == 1:
-                genres_real = f"(\"{true_genres_decoded[i][0]}\")"
-            elif true_genres_decoded[i]:
-                genres_real = ""
-                for gen in true_genres_decoded[i]:
-                    if gen == true_genres_decoded[i][-1]:
-                        genres_real += f"\"{gen}\""
-                    else:
-                        genres_real += f"\"{gen}\", "
-                genres_real = "(" + genres_real + ")"
-            else:
-                genres_real = "\"no genres\""
+    for i in range(len(X_test)):
+        name = names_test.iloc[i]
+        # Get real genres
+        if len(true_genres_decoded[i]) == 1:
+            genres_real = true_genres_decoded[i][0]
+        elif true_genres_decoded[i]:
+            genres_real = list(true_genres_decoded[i])
+        else:
+            genres_real = "no genres"
 
-            # Get outputted genres
-            if len(decoded[i]) == 1:
-                genres = f"(\"{decoded[i][0]}\")"
-            elif decoded[i]:
-                genres = ""
-                for gen in decoded[i]:
-                    if gen == decoded[i][-1]:
-                        genres += f"\"{gen}\""
-                    else:
-                        genres += f"\"{gen}\", "
-                genres = "(" + genres + ")"
-            else:
-                genres = "\"no genres predicted\""
-            
-            # Write name and genres to file
-            f.write(f"\"{name}\", {genres}, {genres_real}\n")
+        # Get outputted genres
+        if len(decoded[i]) == 1:
+            genres = decoded[i][0]
+        elif decoded[i]:
+            genres = list(decoded[i])
+        else:
+            genres = "no genres predicted"
 
+        # Write name and genres to dataframe
+        output.loc[len(output)] = [name, genres, genres_real]
+
+    # Output dataframe to a csv
+    output.to_csv('Prediction_1/output.csv', index=False)
+    
     # Export trained model
     export_model = tf.keras.Sequential([
         vectorize_layer,
         model
     ])
 
-    # Build before saving
-    export_model(tf.constant(["sample text"]))
-    export_model.save("Prediction_1/model.keras")
+    """
+    Code for saving model, only on MacOS
+    """
+    # # Build before saving
+    # export_model(tf.constant(["sample text"]))
+    # export_model.save("Prediction_1/model.keras")
 
-    # Save label binarizer
-    joblib.dump(mlb, "Prediction_1/binarizer.pkl")
+    # # Save label binarizer
+    # joblib.dump(mlb, "Prediction_1/binarizer.pkl")
