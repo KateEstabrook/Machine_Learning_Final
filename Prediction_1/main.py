@@ -75,7 +75,8 @@ if __name__ == "__main__":
         layers.Embedding(max_features + 1, embedding_dim),
         layers.GlobalAveragePooling1D(),
         layers.Dropout(0.2),
-        layers.Dense(num_genres, activation='sigmoid')  # sigmoid → multi-label
+        # Use sigmoid for multi-label
+        layers.Dense(num_genres, activation='sigmoid') 
     ])
 
     model.compile(
