@@ -46,8 +46,8 @@ if __name__ == "__main__":
     )
 
     # Text vectorization
-    max_features = 30000 # actual number = 176316, for speeds sake, cap at 30000
-    sequence_length = 400
+    max_features = 30000 # Actual number = 176316, for speeds sake, cap at 30000 (changeable)
+    sequence_length = 400 # (changeable)
 
     # Converts raw text into sequences of integers for processing
     vectorize_layer = layers.TextVectorization(
@@ -58,17 +58,18 @@ if __name__ == "__main__":
     # Build vocabulary
     vectorize_layer.adapt(X_train.values)
 
-    # Prepare TensorFlow datasets
-    batch_size = 64
+    # Make tensorflow datasets using vectorized data 
+    batch_size = 64 # (changeable)
     train_ds = (
         tf.data.Dataset.from_tensor_slices((X_train.values, y_train))
-        .map(lambda x, y: (vectorize_layer(x), y))
+        .map(lambda x, y: (vectorize_layer(x), y)) # Vectorize each data string
         .cache()
         .shuffle(10000)
         .batch(batch_size)
         .prefetch(tf.data.AUTOTUNE)
     )
 
+    # Tensorflow dataset for the testing data
     test_ds = (
         tf.data.Dataset.from_tensor_slices((X_test.values, y_test))
         .map(lambda x, y: (vectorize_layer(x), y))
@@ -82,19 +83,19 @@ if __name__ == "__main__":
     num_genres = len(genre_classes)
 
     model = tf.keras.Sequential([
-        layers.Embedding(max_features + 1, embedding_dim),
-        layers.GlobalAveragePooling1D(),
-        layers.Dropout(0.2),
-        # Use sigmoid for multi-label
-        layers.Dense(num_genres, activation='sigmoid') 
+        layers.Embedding(max_features + 1, embedding_dim), # Model learns relationships 
+        layers.GlobalAveragePooling1D(), # Summarize/Average word embeddings
+        layers.Dropout(0.2), # Prevents overfitting (changeable)
+        layers.Dense(num_genres, activation='sigmoid') # Use sigmoid for multi-label -> independent probabilities
     ])
 
     model.compile(
-        loss='binary_crossentropy',
+        loss='binary_crossentropy', # Every genre is its own class
         optimizer='adam',
         metrics=['accuracy']
     )
 
+    # Train the model for 10 epochs
     history = model.fit(
         train_ds,
         validation_data=test_ds,
@@ -102,9 +103,9 @@ if __name__ == "__main__":
     )
 
     # Evaluate and make Predictions
-    preds = model.predict(vectorize_layer(X_test.values))
+    preds = model.predict(vectorize_layer(X_test.values)) # Generates predicted probabilities for each genre per game
     pred_labels = (preds > 0.5).astype(int)
-    decoded = mlb.inverse_transform(pred_labels)
+    decoded = mlb.inverse_transform(pred_labels) # Change binary vectors back into genres
 
     # Save results to csv file
     output = pd.DataFrame(columns=['Name', 'Prediction', 'Actual']) #'Confidence'
