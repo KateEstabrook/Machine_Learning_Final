@@ -1,5 +1,5 @@
 import ast
-import joblib
+#import joblib
 import pandas as pd
 import tensorflow as tf
 from sklearn.model_selection import train_test_split
@@ -46,19 +46,20 @@ if __name__ == "__main__":
     )
 
     # Text vectorization
-    max_features = 10000 # actual number = 176316, for speeds sake, cap at 10000
+    max_features = 30000 # actual number = 176316, for speeds sake, cap at 30000
     sequence_length = 400
 
+    # Converts raw text into sequences of integers for processing
     vectorize_layer = layers.TextVectorization(
         max_tokens=max_features,
         output_mode='int',
         output_sequence_length=sequence_length
     )
+    # Build vocabulary
     vectorize_layer.adapt(X_train.values)
 
     # Prepare TensorFlow datasets
-    batch_size = 32
-
+    batch_size = 64
     train_ds = (
         tf.data.Dataset.from_tensor_slices((X_train.values, y_train))
         .map(lambda x, y: (vectorize_layer(x), y))
@@ -134,8 +135,7 @@ if __name__ == "__main__":
         # Build formatted genre strings and confidence list
         formatted_preds = list([
             f"{genre_classes[idx]}"
-            for idx in filtered_indices
-        ])
+            for idx in filtered_indices])
         confidence_list = [round(float(genre_probs[idx]), 2) for idx in filtered_indices]
 
         # Add to output
