@@ -8,28 +8,37 @@ from tensorflow.keras import layers
 
 def str_to_lst(value):
     """Convert stringified list of genres into a Python list."""
+    # If genres empty, return empty list
     if pd.isna(value):
         return []
     try:
+        # Try to change to a list
         return ast.literal_eval(value)
     except Exception:
+        # Otherwise return empty list
         return []
 
 if __name__ == "__main__":
-    # Load and preprocess the dataset
+    # Load into df and preprocess the dataset
     df = pd.read_csv('games.csv')
 
+    # Convert each list of genres into a list
     df['genres'] = df['genres'].apply(str_to_lst)
-    print("Sample parsed genres:\n", df['genres'].head())
 
-    # Prepare features and labels
+    # Seperate features and labels w/ multilaber binarizer
     mlb = MultiLabelBinarizer()
+    # Basically 1s and 0s for if each game has each genre
     y = mlb.fit_transform(df['genres'])
     genre_classes = mlb.classes_
 
-    # Ensure no empty values in description
+    # Check for empty descriptions.
     X = df['detailed_description'].astype(str)
-    game_names = df['name'].astype(str) if 'name' in df.columns else [f"Game_{i}" for i in range(len(df))]
+    if 'name' in df.columns:
+        # Check for a name
+        game_names = df['name'].astype(str)
+    else:
+        # If no names, call the game Game_#
+        game_names = [f"Game_{i}" for i in range(len(df))]
 
     # 90/10 train-test split
     X_train, X_test, y_train, y_test, names_train, names_test = train_test_split(
@@ -37,8 +46,8 @@ if __name__ == "__main__":
     )
 
     # Text vectorization
-    max_features = 20000
-    sequence_length = 300
+    max_features = 10000 # actual number = 176316, for speeds sake, cap at 10000
+    sequence_length = 400
 
     vectorize_layer = layers.TextVectorization(
         max_tokens=max_features,
@@ -96,15 +105,16 @@ if __name__ == "__main__":
     pred_labels = (preds > 0.5).astype(int)
     decoded = mlb.inverse_transform(pred_labels)
 
-    # Save results to text file
-    output = pd.DataFrame(columns=['Name', 'Prediction', 'Actual'])
+    # Save results to csv file
+    output = pd.DataFrame(columns=['Name', 'Prediction', 'Actual']) #'Confidence'
 
     # Convert back to actual genre labels
     true_genres_decoded = mlb.inverse_transform(y_test)
     
     for i in range(len(X_test)):
         name = names_test.iloc[i]
-        # Get real genres
+
+        # Get true genres
         if len(true_genres_decoded[i]) == 1:
             genres_real = true_genres_decoded[i][0]
         elif true_genres_decoded[i]:
@@ -112,16 +122,25 @@ if __name__ == "__main__":
         else:
             genres_real = "no genres"
 
-        # Get outputted genres
-        if len(decoded[i]) == 1:
-            genres = decoded[i][0]
-        elif decoded[i]:
-            genres = list(decoded[i])
-        else:
-            genres = "no genres predicted"
+        # Get predicted probabilities
+        genre_probs = preds[i]
 
-        # Write name and genres to dataframe
-        output.loc[len(output)] = [name, genres, genres_real]
+        # Get sorted indices by confidence (descending)
+        sorted_indices = genre_probs.argsort()[::-1]
+
+        # Filter out very low confidences
+        filtered_indices = [idx for idx in sorted_indices if genre_probs[idx] > 0.5]
+
+        # Build formatted genre strings and confidence list
+        formatted_preds = list([
+            f"{genre_classes[idx]}"
+            for idx in filtered_indices
+        ])
+        confidence_list = [round(float(genre_probs[idx]), 2) for idx in filtered_indices]
+
+        # Add to output
+        output.loc[len(output)] = [name, formatted_preds, genres_real] # confidence_list
+        
 
     # Output dataframe to a csv
     output.to_csv('Prediction_1/output.csv', index=False)
