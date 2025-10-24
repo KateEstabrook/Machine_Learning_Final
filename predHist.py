@@ -57,5 +57,5 @@ plt.bar(
 plt.title("Prediction Accuracy", fontsize = 16)
 plt.xlabel("Prediction Category", fontsize = 12)
 plt.ylabel("Instances", fontsize = 12)
-plt.show()
 plt.savefig("graphs/histogram.png")
+plt.show()

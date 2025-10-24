@@ -64,5 +64,5 @@ legend_elements = [
 ax.legend(handles=legend_elements, title="Dominant Genre", bbox_to_anchor=(1.05, 1), loc='upper left')
 
 plt.tight_layout()
-plt.show()
 plt.savefig("graphs/t-SNE_graph.png")
+plt.show()
