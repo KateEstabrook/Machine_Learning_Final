@@ -46,8 +46,8 @@ if __name__ == "__main__":
     )
 
     # Text vectorization
-    max_features = 30000 # Actual number = 176316, for speeds sake, cap at 30000 (changeable)
-    sequence_length = 400 # (changeable)
+    max_features = 176316 # Actual number = 176316, for speeds sake, cap at 30000 (changeable)
+    sequence_length = 500 # (changeable)
 
     # Converts raw text into sequences of integers for processing
     vectorize_layer = layers.TextVectorization(
@@ -59,7 +59,7 @@ if __name__ == "__main__":
     vectorize_layer.adapt(X_train.values)
 
     # Make tensorflow datasets using vectorized data 
-    batch_size = 64 # (changeable)
+    batch_size = 32 # (changeable)
     train_ds = (
         tf.data.Dataset.from_tensor_slices((X_train.values, y_train))
         .map(lambda x, y: (vectorize_layer(x), y)) # Vectorize each data string
@@ -99,7 +99,7 @@ if __name__ == "__main__":
     history = model.fit(
         train_ds,
         validation_data=test_ds,
-        epochs=10
+        epochs=20 # For speeds sake
     )
 
     # Evaluate and make Predictions
@@ -108,7 +108,7 @@ if __name__ == "__main__":
     decoded = mlb.inverse_transform(pred_labels) # Change binary vectors back into genres
 
     # Save results to csv file
-    output = pd.DataFrame(columns=['Name', 'Prediction', 'Actual']) #'Confidence'
+    output = pd.DataFrame(columns=['Name', 'Prediction', 'Actual', 'Confidence'])
 
     # Convert back to actual genre labels
     true_genres_decoded = mlb.inverse_transform(y_test)
@@ -140,7 +140,7 @@ if __name__ == "__main__":
         confidence_list = [round(float(genre_probs[idx]), 2) for idx in filtered_indices]
 
         # Add to output
-        output.loc[len(output)] = [name, formatted_preds, genres_real] # confidence_list
+        output.loc[len(output)] = [name, formatted_preds, genres_real, confidence_list]
         
 
     # Output dataframe to a csv
