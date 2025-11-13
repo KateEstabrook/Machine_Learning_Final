@@ -99,7 +99,7 @@ if __name__ == "__main__":
     history = model.fit(
         train_ds,
         validation_data=test_ds,
-        epochs=20 # For speeds sake
+        epochs=10 # For speeds sake
     )
 
     # Evaluate and make Predictions
