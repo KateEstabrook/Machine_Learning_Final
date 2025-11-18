@@ -5,6 +5,10 @@ import tensorflow as tf
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MultiLabelBinarizer
 from tensorflow.keras import layers
+from sklearn.feature_extraction import DictVectorizer
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
+from tensorflow.keras import Input, Model
+from tensorflow.keras.metrics import Precision, Recall, AUC
 
 def str_to_lst(value):
     """Convert stringified list of genres into a Python list."""
@@ -18,12 +22,37 @@ def str_to_lst(value):
         # Otherwise return empty list
         return []
 
+def str_to_dict(value):
+    # If tags empty, return empty dict
+    if pd.isna(value) or not isinstance(value, str):
+        return {}
+    try:
+        # Try to change to a dict
+        return ast.literal_eval(value)
+    except Exception:
+        # Otherwise return empty dict
+        return {}
+
 if __name__ == "__main__":
     # Load into df and preprocess the dataset
     df = pd.read_csv('games.csv')
 
     # Convert each list of genres into a list
     df['genres'] = df['genres'].apply(str_to_lst)
+
+    # tag feature processing
+    # Convert stringified tag dicts to real dicts
+    df['tags'] = df['tags'].apply(str_to_dict)
+
+    # Build feature matrix for tags
+    dict_vectorizer = DictVectorizer(sparse=False)
+    tag_features = dict_vectorizer.fit_transform(df['tags'])
+
+    # Use StandardScaler instead of MinMaxScaler
+    scaler = StandardScaler()
+    tag_features = scaler.fit_transform(tag_features)
+
+    tag_feature_names = dict_vectorizer.get_feature_names_out()
 
     # Seperate features and labels w/ multilaber binarizer
     mlb = MultiLabelBinarizer()
@@ -41,13 +70,13 @@ if __name__ == "__main__":
         game_names = [f"Game_{i}" for i in range(len(df))]
 
     # 90/10 train-test split
-    X_train, X_test, y_train, y_test, names_train, names_test = train_test_split(
-        X, y, game_names, test_size=0.1, shuffle=True
+    X_train, X_test, y_train, y_test, tags_train, tags_test, names_train, names_test = train_test_split(
+        X, y, tag_features, game_names, test_size=0.1, shuffle=True
     )
 
     # Text vectorization
-    max_features = 176316 # Actual number = 176316, for speeds sake, cap at 30000 (changeable)
-    sequence_length = 500 # (changeable)
+    max_features = 30000 # Actual number = 176316, for speeds sake, cap at 30000 (changeable)
+    sequence_length = 300 # (changeable)
 
     # Converts raw text into sequences of integers for processing
     vectorize_layer = layers.TextVectorization(
@@ -58,53 +87,85 @@ if __name__ == "__main__":
     # Build vocabulary
     vectorize_layer.adapt(X_train.values)
 
-    # Make tensorflow datasets using vectorized data 
+    # Mulit-input dataset
+    X_train_vec = vectorize_layer(X_train.values)
+    X_test_vec = vectorize_layer(X_test.values)
+
     batch_size = 32 # (changeable)
     train_ds = (
-        tf.data.Dataset.from_tensor_slices((X_train.values, y_train))
-        .map(lambda x, y: (vectorize_layer(x), y)) # Vectorize each data string
-        .cache()
+        tf.data.Dataset.from_tensor_slices(((X_train_vec, tags_train), y_train))
         .shuffle(10000)
         .batch(batch_size)
         .prefetch(tf.data.AUTOTUNE)
     )
 
-    # Tensorflow dataset for the testing data
     test_ds = (
-        tf.data.Dataset.from_tensor_slices((X_test.values, y_test))
-        .map(lambda x, y: (vectorize_layer(x), y))
+        tf.data.Dataset.from_tensor_slices(((X_test_vec, tags_test), y_test))
         .batch(batch_size)
-        .cache()
         .prefetch(tf.data.AUTOTUNE)
     )
 
     # Build and train model
-    embedding_dim = 128
+    embedding_dim = 64
     num_genres = len(genre_classes)
 
-    model = tf.keras.Sequential([
-        layers.Embedding(max_features + 1, embedding_dim), # Model learns relationships 
-        layers.GlobalAveragePooling1D(), # Summarize/Average word embeddings
-        layers.Dropout(0.2), # Prevents overfitting (changeable)
-        layers.Dense(num_genres, activation='sigmoid') # Use sigmoid for multi-label -> independent probabilities
-    ])
+    # multi-input stuff
+    # Text input
+    text_input = Input(shape=(sequence_length,), dtype=tf.int32, name='text_input')
+    x = layers.Embedding(max_features + 1, embedding_dim)(text_input)
+    x = layers.Conv1D(128, 5, activation='relu')(x)   # reduced filters
+    x = layers.GlobalMaxPooling1D()(x)
+    x = layers.Dense(128, activation='relu')(x)
+    x = layers.Dropout(0.3)(x)
 
+    # Tag input
+    tag_input = Input(shape=(tag_features.shape[1],), dtype=tf.float32, name='tag_input')
+    t = layers.Dense(64, activation='relu')(tag_input)  # smaller dense layer
+    t = layers.Dropout(0.3)(t)
+
+    # Combine both branches
+    combined = layers.concatenate([x, t])
+
+    # deeper dense stack + batch normalization
+    combined = layers.Dense(256, activation='relu')(combined)
+    combined = layers.BatchNormalization()(combined)
+    combined = layers.Dropout(0.3)(combined)
+
+    output = layers.Dense(num_genres, activation='sigmoid')(combined)
+
+    model = Model(inputs=[text_input, tag_input], outputs=output)
+
+    # replace accuracy with better metrics
     model.compile(
         loss='binary_crossentropy', # Every genre is its own class
-        optimizer='adam',
-        metrics=['accuracy']
+        optimizer=tf.keras.optimizers.Adam(learning_rate=1e-4),
+        metrics=[Precision(name="precision"), Recall(name="recall"), AUC(name="auc")]
     )
 
-    # Train the model for 10 epochs
+    model.summary()
+
+    # Early stopping callback
+    early_stop = tf.keras.callbacks.EarlyStopping(
+        patience=3,
+        restore_best_weights=True
+    )
+
+    # Train the model for more epochs
     history = model.fit(
         train_ds,
         validation_data=test_ds,
-        epochs=10 # For speeds sake
+        epochs=20, # Increased for better convergence
+        callbacks=[early_stop],
+        verbose=1 # Only print per-epoch progress (not every batch)
     )
 
     # Evaluate and make Predictions
-    preds = model.predict(vectorize_layer(X_test.values)) # Generates predicted probabilities for each genre per game
-    pred_labels = (preds > 0.5).astype(int)
+    preds = model.predict((vectorize_layer(X_test.values), tags_test)) # Generates predicted probabilities for each genre per game
+
+    # tuned threshold
+    best_threshold = 0.35
+    pred_labels = (preds > best_threshold).astype(int)
+
     decoded = mlb.inverse_transform(pred_labels) # Change binary vectors back into genres
 
     # Save results to csv file
@@ -112,7 +173,7 @@ if __name__ == "__main__":
 
     # Convert back to actual genre labels
     true_genres_decoded = mlb.inverse_transform(y_test)
-    
+
     for i in range(len(X_test)):
         name = names_test.iloc[i]
 
@@ -131,7 +192,7 @@ if __name__ == "__main__":
         sorted_indices = genre_probs.argsort()[::-1]
 
         # Filter out very low confidences
-        filtered_indices = [idx for idx in sorted_indices if genre_probs[idx] > 0.5]
+        filtered_indices = [idx for idx in sorted_indices if genre_probs[idx] > best_threshold]
 
         # Build formatted genre strings and confidence list
         formatted_preds = list([
@@ -141,11 +202,10 @@ if __name__ == "__main__":
 
         # Add to output
         output.loc[len(output)] = [name, formatted_preds, genres_real, confidence_list]
-        
 
     # Output dataframe to a csv
     output.to_csv('Prediction_1/output.csv', index=False)
-    
+
     # Export trained model
     export_model = tf.keras.Sequential([
         vectorize_layer,
