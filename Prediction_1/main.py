@@ -135,10 +135,10 @@ if __name__ == "__main__":
 
     model = Model(inputs=[text_input, tag_input], outputs=output)
 
-    # replace accuracy with better metrics
+    # Use precision recall for a better metric
     model.compile(
         loss='binary_crossentropy', # Every genre is its own class
-        optimizer=tf.keras.optimizers.Adam(learning_rate=1e-4),
+        optimizer=tf.keras.optimizers.Adam(learning_rate=1e-4), #(changeable)
         metrics=[Precision(name="precision"), Recall(name="recall"), AUC(name="auc")]
     )
 
