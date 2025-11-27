@@ -1,68 +1,69 @@
 import ast
 import pandas as pd
 import matplotlib.pyplot as plt
-from matplotlib.lines import Line2D
 import numpy as np
-from sklearn.preprocessing import MultiLabelBinarizer, StandardScaler
-from sklearn.manifold import TSNE
+from sklearn.preprocessing import MultiLabelBinarizer
 
-# Function for safely creating df[Predictions]
-def safe_eval(x):
+# Makes sure data is parsed in correctly for use
+def safe_list(x):
     try:
-        if x.startswith('['):
-            return ast.literal_eval(x)
-        else:
-            return ["No genre"]
+        return ast.literal_eval(x) if isinstance(x, str) else []
     except:
-        return ["No genre"]
+        return []
 
-# Load data
+# Create and load dataframes
 df = pd.read_csv("Prediction_1/output.csv")
 
-# Convert csv strings to lists
-df['Prediction'] = df['Prediction'].apply(safe_eval)
+df['Prediction'] = df['Prediction'].apply(safe_list)
+df['Actual']     = df['Actual'].apply(safe_list)
+df['Confidence'] = df['Confidence'].apply(safe_list)
 
-# Find dominant genre
-df['DominantGenre'] = df['Prediction'].apply(lambda x: x[0] if len(x) > 0 else "No genre")
-
-# One-hot encode predictions
+# Multi-label binarizations
 mlb = MultiLabelBinarizer()
-X = mlb.fit_transform(df['Prediction'])
+y_pred = mlb.fit_transform(df['Prediction'])
+y_true = mlb.transform(df['Actual'])  # use same classes as prediction
 
-# Standardize for better t-SNE performance
-scaler = StandardScaler()
-X_scaled = scaler.fit_transform(X)
+genres = mlb.classes_
+n = len(genres)
 
-# Compute t-SNE
-tsne = TSNE(n_components=2, perplexity=30, random_state=42)
-tsne_result = tsne.fit_transform(X_scaled)
+# Create confusion matrix  
+# Rows = Actual genre
+# Cols = Predicted genre
+conf_matrix = np.zeros((n, n), dtype=int)
 
-# Set up colors and markers
-unique_genres = sorted(df['DominantGenre'].unique())
-num_genres = len(unique_genres)
-cmap = plt.get_cmap('hsv')
-colors = [cmap(i / num_genres) for i in range(num_genres)]
-markers = ['+', 'x']
-genre_to_style = {genre: (colors[i], markers[i % len(markers)]) for i, genre in enumerate(unique_genres)}
+for i in range(len(df)):
+    for a_idx, actual_label in enumerate(y_true[i]):
+        if actual_label == 1:
+            # For each actual genre, check which predicted genres were selected
+            for p_idx, pred_label in enumerate(y_pred[i]):
+                if pred_label == 1:
+                    conf_matrix[a_idx][p_idx] += 1
 
-# Plot t-SNE scatter
-fig, ax = plt.subplots(figsize=(8, 7))
-for genre in unique_genres:
-    mask = df['DominantGenre'] == genre
-    color, marker = genre_to_style[genre]
-    ax.scatter(tsne_result[mask, 0], tsne_result[mask, 1],
-               c=[color], marker=marker, alpha=0.8, label=genre)
+# Plot confusion matrix
+fig, ax = plt.subplots(figsize=(12, 10))
+im = ax.imshow(conf_matrix, cmap="viridis")
 
-ax.set_title("t-SNE Cloud")
+# Show numbers on the heatmap
+for i in range(n):
+    for j in range(n):
+        ax.text(
+            j, i, str(conf_matrix[i, j]),
+            ha="center", va="center",
+            color="white" if conf_matrix[i, j] > np.max(conf_matrix)/2 else "black",
+            fontsize=8
+        )
 
-# Create legend with colors and markers
-legend_elements = [
-    Line2D([0], [0], marker=genre_to_style[genre][1], color='w', label=genre,
-           markeredgecolor=genre_to_style[genre][0], markersize=8, linestyle='None')
-    for genre in unique_genres
-]
-ax.legend(handles=legend_elements, title="Dominant Genre", bbox_to_anchor=(1.05, 1), loc='upper left')
+# Axis labels
+ax.set_xticks(np.arange(n))
+ax.set_yticks(np.arange(n))
+ax.set_xticklabels(genres, rotation=45, ha="right")
+ax.set_yticklabels(genres)
 
+ax.set_xlabel("Predicted Genre")
+ax.set_ylabel("Actual Genre")
+ax.set_title("Multi-label Genre Confusion Matrix")
+
+plt.colorbar(im, ax=ax)
 plt.tight_layout()
-plt.savefig("graphs/t-SNE_graph.png")
+plt.savefig("graphs/confusion_matrix.png")
 plt.show()
