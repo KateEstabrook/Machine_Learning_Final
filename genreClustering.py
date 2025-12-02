@@ -66,23 +66,21 @@ plt.figure(figsize=(10, 8))
 
 # Color map with colors for each genre
 cmap = plt.cm.get_cmap("tab20", len(genre_names))
+# Marker shapes for different clusters
+markers = ["o", "s", "D", "^"]
 
 # Looping through each genre
-for i in range(len(genre_names)):
-    # Coordinates of genre in PCA space
-    x, y = coords_2d[i]
-    # Name of genre
-    genre = genre_names[i]
-    # Cluster for genre
-    c = cluster_ids[i]    
-
-    # Plotting genre as point
+for i, (x, y, genre, c) in enumerate(
+    zip(coords_2d[:, 0], coords_2d[:, 1], genre_names, cluster_ids)
+):
     plt.scatter(
         x, y,
-        color=cmap(c),   # Color based on cluster   
+        color=cmap(i),                     # Different color for each genre
+        marker=markers[c % len(markers)],  # Same shape for each cluster
         s=90,
-        label=genre        
+        label=genre,
     )
+
 
 # Plotting genre legend
 plt.legend()
