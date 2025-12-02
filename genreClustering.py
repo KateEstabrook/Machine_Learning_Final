@@ -54,7 +54,7 @@ for g in unique_genres:
 genre_vecs = np.vstack(genre_vecs)
 
 # Running K-Means to cluster genres based on average TF-IDF
-n_clusters = 4
+n_clusters = 5
 kmeans = KMeans(n_clusters=n_clusters, random_state=42)
 cluster_ids = kmeans.fit_predict(genre_vecs)
 
@@ -67,7 +67,7 @@ plt.figure(figsize=(10, 8))
 # Color map with colors for each genre
 cmap = plt.cm.get_cmap("tab20", len(genre_names))
 # Marker shapes for different clusters
-markers = ["o", "s", "D", "^"]
+markers = ["o", "s", "D", "^", "*"]
 
 # Looping through each genre
 for i, (x, y, genre, c) in enumerate(
